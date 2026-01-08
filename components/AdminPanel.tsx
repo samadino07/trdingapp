@@ -2,7 +2,7 @@
 import React, { useEffect, useState } from 'react';
 import { supabase } from '../lib/supabase';
 import { UserProfile } from '../types';
-import { Shield, LogOut, Search, MapPin, Smartphone, Clock, Database, EyeOff } from 'lucide-react';
+import { Shield, LogOut, Search, MapPin, Smartphone, Clock, Database, EyeOff, AlertCircle } from 'lucide-react';
 
 interface Props {
   onLogout: () => void;
@@ -12,6 +12,7 @@ const AdminPanel: React.FC<Props> = ({ onLogout }) => {
   const [users, setUsers] = useState<UserProfile[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
   useEffect(() => {
     fetchUsers();
@@ -19,16 +20,22 @@ const AdminPanel: React.FC<Props> = ({ onLogout }) => {
 
   const fetchUsers = async () => {
     try {
+      setLoading(true);
+      setErrorMsg(null);
       // Fetch data from 'profiles' table which contains the custom data we saved (IP, Username)
       const { data, error } = await supabase
         .from('profiles')
         .select('*')
         .order('last_login', { ascending: false });
 
-      if (error) throw error;
+      if (error) {
+        throw error;
+      }
+      
       if (data) setUsers(data);
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error fetching users:", error);
+      setErrorMsg(error.message || "حدث خطأ أثناء تحميل البيانات (تحقق من صلاحيات RLS في Supabase)");
     } finally {
       setLoading(false);
     }
@@ -105,6 +112,13 @@ const AdminPanel: React.FC<Props> = ({ onLogout }) => {
               </div>
            </div>
 
+           {errorMsg && (
+             <div className="bg-rose-900/20 border-b border-rose-500/20 p-4 flex items-center gap-3 text-rose-400">
+               <AlertCircle className="w-5 h-5 shrink-0" />
+               <div className="text-xs font-bold">{errorMsg}</div>
+             </div>
+           )}
+
            <div className="overflow-x-auto">
               <table className="w-full text-right text-sm text-slate-400">
                  <thead className="bg-slate-900/50 text-xs uppercase font-medium text-slate-500">
@@ -121,7 +135,7 @@ const AdminPanel: React.FC<Props> = ({ onLogout }) => {
                        <tr>
                           <td colSpan={5} className="px-6 py-8 text-center text-slate-500">جاري تحميل البيانات...</td>
                        </tr>
-                    ) : filteredUsers.length === 0 ? (
+                    ) : filteredUsers.length === 0 && !errorMsg ? (
                        <tr>
                           <td colSpan={5} className="px-6 py-8 text-center text-slate-500">لا يوجد مستخدمين مطابقين</td>
                        </tr>

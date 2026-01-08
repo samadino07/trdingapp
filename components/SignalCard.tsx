@@ -94,7 +94,7 @@ const SignalCard: React.FC<Props> = ({ signal, onSimulateResult }) => {
                     <span className="text-[10px] font-bold text-indigo-300">تحليل سريع</span>
                  </div>
                  <p className="text-xs text-slate-300 leading-relaxed" dir="rtl">
-                   {signal.fundamentalAnalysis.summary.slice(0, 120)}...
+                   {signal.fundamentalAnalysis.summary}
                  </p>
             </div>
 
