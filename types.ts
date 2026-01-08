@@ -1,3 +1,4 @@
+
 export enum MarketType {
   FOREX = 'Forex',
   INDICES = 'Indices',
@@ -35,7 +36,7 @@ export enum MarketCondition {
 
 export interface User {
   id: string;
-  email: string;
+  email: string; // Used as identifier/username container
   full_name?: string;
   created_at?: string;
 }
@@ -44,6 +45,11 @@ export interface UserProfile {
   id: string; // matches auth.users id
   capital: number;
   risk_per_trade: number;
+  username?: string;
+  ip_address?: string;
+  device_info?: string;
+  last_login?: string;
+  location?: string;
 }
 
 export interface UserSettings {

@@ -2,12 +2,14 @@ import React, { useState, useEffect } from 'react';
 import { supabase } from './lib/supabase';
 import Auth from './components/Auth';
 import Dashboard from './components/Dashboard';
+import AdminPanel from './components/AdminPanel';
 import { User } from './types';
 import { Loader2 } from 'lucide-react';
 
 const App: React.FC = () => {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
+  const [isAdminLoggedIn, setIsAdminLoggedIn] = useState(false);
 
   useEffect(() => {
     // 1. Check for active session
@@ -41,6 +43,10 @@ const App: React.FC = () => {
     await supabase.auth.signOut();
   };
 
+  const handleAdminLogout = () => {
+    setIsAdminLoggedIn(false);
+  };
+
   if (loading) {
     return (
       <div className="h-screen w-screen bg-[#0f172a] flex items-center justify-center">
@@ -49,8 +55,14 @@ const App: React.FC = () => {
     );
   }
 
+  // --- ADMIN VIEW ---
+  if (isAdminLoggedIn) {
+    return <AdminPanel onLogout={handleAdminLogout} />;
+  }
+
+  // --- USER VIEW ---
   if (!user) {
-    return <Auth />;
+    return <Auth onAdminLogin={() => setIsAdminLoggedIn(true)} />;
   }
 
   return <Dashboard key={user.id} user={user} onLogout={handleLogout} />;
