@@ -35,10 +35,15 @@ export enum MarketCondition {
 
 export interface User {
   id: string;
-  username: string;
-  passwordHash: string; // Stored securely
-  createdAt: string;
-  settings?: UserSettings;
+  email: string;
+  full_name?: string;
+  created_at?: string;
+}
+
+export interface UserProfile {
+  id: string; // matches auth.users id
+  capital: number;
+  risk_per_trade: number;
 }
 
 export interface UserSettings {
@@ -63,6 +68,7 @@ export interface TechnicalIndicator {
 
 export interface TradeHistoryItem {
   id: string;
+  user_id?: string;
   date: string;
   asset: string;
   action: TradeAction;
@@ -96,6 +102,7 @@ export interface PerformanceReview {
 
 export interface TradeSignal {
   id: string;
+  user_id?: string;
   asset: string;
   marketType: MarketType;
   modelUsed: string; 

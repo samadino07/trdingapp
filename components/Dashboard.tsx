@@ -1,5 +1,6 @@
 import React, { useState, useCallback, useEffect } from 'react';
-import { Activity, LayoutDashboard, ShieldCheck, Clock, MapPin, Zap, Menu, X, LogOut, User as UserIcon, History, Settings, LineChart, PieChart, GraduationCap, BarChart4 } from 'lucide-react';
+import { supabase } from '../lib/supabase';
+import { Activity, LayoutDashboard, Clock, MapPin, Zap, Menu, LogOut, User as UserIcon, History, Settings, LineChart, PieChart, GraduationCap, BarChart4 } from 'lucide-react';
 import SignalCard from './SignalCard';
 import AnalysisForm from './AnalysisForm';
 import StatsOverview from './StatsOverview';
@@ -8,13 +9,12 @@ import BacktestPanel from './BacktestPanel';
 import PerformanceMonitor from './PerformanceMonitor';
 import TradingViewChart from './TradingViewChart';
 import MarketWatch from './MarketWatch';
-import DataPersistence from './DataPersistence';
 import NewsPanel from './NewsPanel';
 import TutorialsPanel from './TutorialsPanel';
 import ReportsPanel from './ReportsPanel';
 import SettingsPanel from './SettingsPanel';
 import { generateMarketAnalysis } from '../services/geminiService';
-import { TradeSignal, MarketType, AIModelId, Timeframe, TradeHistoryItem, BacktestResult, LivePrice, AVAILABLE_ASSETS, TradeAction, User } from '../types';
+import { TradeSignal, MarketType, AIModelId, Timeframe, TradeHistoryItem, BacktestResult, LivePrice, AVAILABLE_ASSETS, User } from '../types';
 
 interface Props {
   user: User;
@@ -24,7 +24,6 @@ interface Props {
 type ViewMode = 'dashboard' | 'reports' | 'history' | 'backtest' | 'education' | 'settings';
 
 const Dashboard: React.FC<Props> = ({ user, onLogout }) => {
-  const storageKey = (key: string) => `user_${user.id}_${key}`;
   const [currentView, setCurrentView] = useState<ViewMode>('dashboard');
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
@@ -33,24 +32,57 @@ const Dashboard: React.FC<Props> = ({ user, onLogout }) => {
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
   
-  const [capital, setCapital] = useState<number>(() => {
-    const saved = localStorage.getItem(storageKey('capital'));
-    return saved ? parseFloat(saved) : 1000;
-  });
-
-  const [history, setHistory] = useState<TradeHistoryItem[]>(() => {
-    const saved = localStorage.getItem(storageKey('history'));
-    return saved ? JSON.parse(saved) : [];
-  });
-
+  const [capital, setCapital] = useState<number>(1000);
+  const [history, setHistory] = useState<TradeHistoryItem[]>([]);
   const [backtestResult, setBacktestResult] = useState<BacktestResult | null>(null);
+  
   const [totalProfit, setTotalProfit] = useState(0);
   const [totalLoss, setTotalLoss] = useState(0);
 
   const [livePrices, setLivePrices] = useState<LivePrice[]>([]);
   const [activeAsset, setActiveAsset] = useState<string>('EUR/USD');
 
-  // --- Market Simulation ---
+  // --- Fetch Data from Supabase ---
+  useEffect(() => {
+    const fetchData = async () => {
+      // 1. Get Capital (Profile)
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('capital')
+        .eq('id', user.id)
+        .single();
+      
+      if (profile) {
+        setCapital(profile.capital);
+      } else {
+        // Init profile if not exists
+        await supabase.from('profiles').insert([{ id: user.id, capital: 1000 }]);
+      }
+
+      // 2. Get Trade History
+      const { data: trades } = await supabase
+        .from('trades')
+        .select('*')
+        .eq('user_id', user.id)
+        .order('date', { ascending: false });
+      
+      if (trades) setHistory(trades);
+
+      // 3. Get Recent Signals (Optional - e.g. last 24h)
+      const { data: savedSignals } = await supabase
+        .from('signals')
+        .select('*')
+        .eq('user_id', user.id)
+        .order('timestamp', { ascending: false })
+        .limit(10);
+        
+      if (savedSignals) setSignals(savedSignals);
+    };
+
+    fetchData();
+  }, [user.id]);
+
+  // --- Market Simulation (No Change) ---
   useEffect(() => {
     const assets = [
         ...AVAILABLE_ASSETS[MarketType.FOREX].slice(0, 3), 
@@ -93,40 +125,47 @@ const Dashboard: React.FC<Props> = ({ user, onLogout }) => {
     setTotalLoss(l * -1); 
   }, [history]);
 
-  // --- Persistence ---
-  useEffect(() => {
-    localStorage.setItem(storageKey('capital'), capital.toString());
-  }, [capital, user.id]);
+  // --- Handlers with Supabase ---
 
-  useEffect(() => {
-    localStorage.setItem(storageKey('history'), JSON.stringify(history));
-  }, [history, user.id]);
+  const handleUpdateCapital = async (newCap: number) => {
+    setCapital(newCap);
+    await supabase
+      .from('profiles')
+      .update({ capital: newCap })
+      .eq('id', user.id);
+  };
 
-  // --- Handlers ---
   const handleAnalyze = useCallback(async (asset: string, type: MarketType, modelId: AIModelId, timeframe: Timeframe) => {
     setLoading(true);
     setError(null);
     setActiveAsset(asset);
     
-    // Auto-scroll to analysis area on mobile if needed
-    
     try {
       const newSignal = await generateMarketAnalysis(asset, type, modelId, timeframe, capital);
+      
+      // Save Signal to DB
+      const signalToSave = { ...newSignal, user_id: user.id };
+      await supabase.from('signals').insert([signalToSave]);
+
       setSignals(prev => [newSignal, ...prev]);
     } catch (err: any) {
       setError(err.message || "حدث خطأ غير متوقع");
     } finally {
       setLoading(false);
     }
-  }, [capital]);
+  }, [capital, user.id]);
 
-  const handleSimulateResult = (amount: number, isWin: boolean) => {
+  const handleSimulateResult = async (amount: number, isWin: boolean) => {
     const currentSignal = signals[0]; 
     const newBalance = capital + amount;
+    
+    // 1. Update Capital State
     setCapital(newBalance);
 
+    // 2. Create History Item
     const newItem: TradeHistoryItem = {
       id: crypto.randomUUID(),
+      user_id: user.id,
       date: new Date().toISOString(),
       asset: currentSignal?.asset || 'Unknown',
       action: currentSignal?.action,
@@ -136,13 +175,10 @@ const Dashboard: React.FC<Props> = ({ user, onLogout }) => {
     };
 
     setHistory(prev => [newItem, ...prev]);
-  };
 
-  const handleImportData = (data: any) => {
-    if (data.capital) setCapital(data.capital);
-    if (data.history) setHistory(data.history);
-    if (data.signals) setSignals(data.signals);
-    if (data.backtestResult) setBacktestResult(data.backtestResult);
+    // 3. Persist to Supabase
+    await supabase.from('profiles').update({ capital: newBalance }).eq('id', user.id);
+    await supabase.from('trades').insert([newItem]);
   };
 
   const getSession = () => {
@@ -153,8 +189,6 @@ const Dashboard: React.FC<Props> = ({ user, onLogout }) => {
     return { name: 'Closed', color: 'text-slate-500' };
   };
   const session = getSession();
-
-  // --- Render Components ---
 
   const SidebarItem = ({ id, icon: Icon, label }: { id: ViewMode, icon: any, label: string }) => (
     <button 
@@ -201,7 +235,7 @@ const Dashboard: React.FC<Props> = ({ user, onLogout }) => {
                  <UserIcon className="w-5 h-5" />
               </div>
               <div className="overflow-hidden">
-                 <div className="text-sm font-bold text-white truncate">{user.username}</div>
+                 <div className="text-sm font-bold text-white truncate">{user.email?.split('@')[0]}</div>
                  <div className="text-[10px] text-emerald-400 flex items-center gap-1">
                     <span className="relative flex h-2 w-2">
                       <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
@@ -230,13 +264,6 @@ const Dashboard: React.FC<Props> = ({ user, onLogout }) => {
 
         {/* Footer */}
         <div className="p-4 border-t border-slate-800 shrink-0 space-y-3">
-           <DataPersistence 
-              capital={capital} 
-              history={history} 
-              signals={signals} 
-              backtestResult={backtestResult}
-              onImportData={handleImportData}
-           />
            <button 
               onClick={onLogout}
               className="w-full flex items-center justify-center gap-2 text-rose-400 hover:bg-rose-500/10 p-2.5 rounded-lg transition-colors text-sm font-bold border border-transparent hover:border-rose-500/20"
@@ -293,7 +320,7 @@ const Dashboard: React.FC<Props> = ({ user, onLogout }) => {
                     totalProfit={totalProfit} 
                     totalLoss={totalLoss} 
                     tradeCount={history.length} 
-                    onUpdateCapital={(val) => setCapital(val)}
+                    onUpdateCapital={handleUpdateCapital}
                  />
 
                  <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
@@ -316,7 +343,7 @@ const Dashboard: React.FC<Props> = ({ user, onLogout }) => {
                              onAnalyze={handleAnalyze} 
                              isLoading={loading} 
                              currentCapital={capital} 
-                             onUpdateCapital={(val) => setCapital(val)}
+                             onUpdateCapital={handleUpdateCapital}
                           />
                        </div>
                     </div>
