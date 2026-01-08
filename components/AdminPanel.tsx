@@ -14,13 +14,6 @@ interface LogEntry {
   type: 'login' | 'update' | 'new_user';
 }
 
-const MOCK_USERS: UserProfile[] = [
-  { id: '1', email: 'admin@mohalil.pro', username: 'admin', capital: 10000, risk_per_trade: 2, ip_address: '105.159.12.4', device_info: 'Chrome (Macintosh)', last_login: new Date().toISOString() },
-  { id: '2', email: 'karim.t@gmail.com', username: 'karim_fx', capital: 2500, risk_per_trade: 1, ip_address: '41.140.22.1', device_info: 'Safari (iPhone)', last_login: new Date(Date.now() - 1000 * 60 * 15).toISOString() },
-  { id: '3', email: 'sara.invest@outlook.com', username: 'sara_invest', capital: 500, risk_per_trade: 1, ip_address: '196.117.33.8', device_info: 'Samsung Browser (Android)', last_login: new Date(Date.now() - 1000 * 60 * 60 * 2).toISOString() },
-  { id: '4', email: 'mehdi.pro@yahoo.fr', username: 'mehdi_scalper', capital: 1500, risk_per_trade: 3, ip_address: '81.192.55.9', device_info: 'Edge (Windows)', last_login: new Date(Date.now() - 1000 * 60 * 60 * 24).toISOString() },
-];
-
 const SQL_FIX_CODE = `
 -- قم بنسخ هذا الكود وتشغيله في Supabase SQL Editor
 -- هذا يسمح بقراءة بيانات المستخدمين للوحة التحكم
@@ -118,9 +111,8 @@ const AdminPanel: React.FC<Props> = ({ onLogout }) => {
       if (data) setUsers(data);
     } catch (error: any) {
       console.error("Error fetching users:", error);
-      setErrorMsg("وضع العرض التجريبي (Demo Mode): صلاحيات قاعدة البيانات مقيدة.");
-      setUsers(MOCK_USERS); // Fallback to mock data
-      addLog("System Alert: RLS blocked access. Loaded Mock Data.", "update");
+      setErrorMsg("تنبيه: لا يمكن جلب البيانات. تأكد من إعداد سياسات الأمان (RLS) في Supabase.");
+      setUsers([]); // Ensure clean state, NO MOCK DATA
     } finally {
       setLoading(false);
     }
@@ -240,14 +232,14 @@ const AdminPanel: React.FC<Props> = ({ onLogout }) => {
 
          {/* Error Banner with Fix Button */}
          {errorMsg && (
-             <div className="bg-orange-950/30 border border-orange-500/20 p-4 rounded-xl flex items-center justify-between gap-3 mb-6 animate-in slide-in-from-top-2">
-               <div className="flex items-center gap-3 text-orange-400">
+             <div className="bg-rose-950/30 border border-rose-500/20 p-4 rounded-xl flex items-center justify-between gap-3 mb-6 animate-in slide-in-from-top-2">
+               <div className="flex items-center gap-3 text-rose-400">
                   <AlertCircle className="w-5 h-5 shrink-0" />
                   <div className="text-xs font-bold">{errorMsg}</div>
                </div>
                <button 
                  onClick={() => setShowFixModal(true)}
-                 className="text-xs font-bold bg-orange-500/20 hover:bg-orange-500/30 text-orange-300 px-3 py-1.5 rounded border border-orange-500/30 transition-colors"
+                 className="text-xs font-bold bg-rose-500/20 hover:bg-rose-500/30 text-rose-300 px-3 py-1.5 rounded border border-rose-500/30 transition-colors"
                >
                  طريقة الإصلاح (SQL)
                </button>
@@ -270,8 +262,10 @@ const AdminPanel: React.FC<Props> = ({ onLogout }) => {
                   <tbody className="divide-y divide-slate-800">
                      {loading ? (
                         <tr><td colSpan={5} className="px-6 py-12 text-center text-slate-500"><RefreshCw className="w-6 h-6 mx-auto animate-spin mb-2"/>جاري تحميل البيانات...</td></tr>
-                     ) : filteredUsers.length === 0 && !errorMsg ? (
-                        <tr><td colSpan={5} className="px-6 py-12 text-center text-slate-500">لا توجد نتائج مطابقة</td></tr>
+                     ) : filteredUsers.length === 0 ? (
+                        <tr><td colSpan={5} className="px-6 py-12 text-center text-slate-500">
+                           {errorMsg ? "لا يمكن عرض البيانات بسبب قيود الأمان" : "لا توجد نتائج مطابقة"}
+                        </td></tr>
                      ) : (
                         filteredUsers.map((user, idx) => {
                            const online = isOnline(user.last_login);
@@ -365,7 +359,7 @@ const AdminPanel: React.FC<Props> = ({ onLogout }) => {
                    onClick={() => setShowFixModal(false)}
                    className="text-sm font-bold text-slate-300 hover:text-white"
                  >
-                    إغلاق ومتابعة الوضع التجريبي
+                    إغلاق
                  </button>
               </div>
            </div>
