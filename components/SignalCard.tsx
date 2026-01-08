@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { TradeSignal, TradeAction, MarketCondition } from '../types';
-import { ArrowUpRight, ArrowDownRight, Shield, CheckCircle2, XCircle, AlertTriangle, TrendingUp, Info, Activity } from 'lucide-react';
+import { ArrowUpRight, ArrowDownRight, Shield, CheckCircle2, XCircle, AlertTriangle, TrendingUp, Info, Activity, FileText } from 'lucide-react';
 
 interface Props {
   signal: TradeSignal;
@@ -64,9 +64,12 @@ const SignalCard: React.FC<Props> = ({ signal, onSimulateResult }) => {
       <div className="p-4">
         {isNeutral ? (
           <div className="text-center py-4">
-            <p className="text-sm text-slate-400 bg-slate-800/50 p-3 rounded-lg border border-slate-700">
-              "{signal.fundamentalAnalysis.summary}"
-            </p>
+            <div className="bg-slate-800/50 p-4 rounded-lg border border-slate-700">
+              <Shield className="w-8 h-8 text-slate-500 mx-auto mb-2" />
+              <p className="text-sm text-slate-300 leading-relaxed" dir="rtl">
+                 "{signal.fundamentalAnalysis.summary}"
+              </p>
+            </div>
           </div>
         ) : (
           <div className="space-y-4">
@@ -87,15 +90,21 @@ const SignalCard: React.FC<Props> = ({ signal, onSimulateResult }) => {
                </div>
             </div>
 
-            {/* AI Insight */}
-            <div className="bg-indigo-900/10 p-3 rounded-lg border border-indigo-500/20">
-                 <div className="flex items-center gap-2 mb-1">
-                    <TrendingUp className="w-3 h-3 text-indigo-400" />
-                    <span className="text-[10px] font-bold text-indigo-300">تحليل سريع</span>
+            {/* Detailed AI Insight */}
+            <div className="bg-indigo-900/10 p-4 rounded-lg border border-indigo-500/20">
+                 <div className="flex items-center gap-2 mb-2 border-b border-indigo-500/10 pb-2">
+                    <FileText className="w-4 h-4 text-indigo-400" />
+                    <span className="text-xs font-bold text-indigo-300">التحليل التفصيلي للصفقة</span>
                  </div>
-                 <p className="text-xs text-slate-300 leading-relaxed" dir="rtl">
+                 <div className="text-sm text-slate-200 leading-7 text-right whitespace-pre-wrap" dir="rtl">
                    {signal.fundamentalAnalysis.summary}
-                 </p>
+                 </div>
+                 {signal.technicalAnalysis?.summary && (
+                    <div className="mt-3 pt-3 border-t border-indigo-500/10 text-xs text-slate-400 leading-relaxed text-right" dir="rtl">
+                       <strong className="text-slate-300 block mb-1">السبب الفني:</strong>
+                       {signal.technicalAnalysis.summary}
+                    </div>
+                 )}
             </div>
 
             {/* Actions Buttons - Large Touch Targets */}

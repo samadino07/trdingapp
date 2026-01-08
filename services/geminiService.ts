@@ -34,14 +34,14 @@ const analysisSchema: Schema = {
     expectedLossAmount: { type: Type.NUMBER, description: "Loss in account currency based on capital" },
     riskAmount: { type: Type.NUMBER, description: "The specific amount risked" },
 
-    technicalSummary: { type: Type.STRING, description: "Simple technical explanation in Arabic (Bullet points)" },
+    technicalSummary: { type: Type.STRING, description: "Detailed technical breakdown in Arabic. Explain Market Structure, Support/Resistance levels, and exact Candle pattern reason." },
     trend: { type: Type.STRING, enum: ['Haussier', 'Baissier', 'Latéral'] },
     rsiValue: { type: Type.NUMBER },
     rsiSignal: { type: Type.STRING, enum: ['Positive', 'Negative', 'Neutre'] },
     macdSignal: { type: Type.STRING, enum: ['Positive', 'Negative', 'Neutre'] },
     emaSignal: { type: Type.STRING, enum: ['Positive', 'Negative', 'Neutre'] },
     
-    fundamentalSummary: { type: Type.STRING, description: "Friendly explanation in Arabic like a friend talking. Explain WHY we enter or wait." },
+    fundamentalSummary: { type: Type.STRING, description: "Combined Deep Analysis in Arabic. Merge technical and fundamental reasons. Explain WHY to enter, WHY this Stop Loss specifically. Be professional and persuasive." },
     sentiment: { type: Type.STRING, enum: ['Risk-On', 'Risk-Off', 'Neutre'] },
     keyEvents: { 
       type: Type.ARRAY, 
@@ -122,25 +122,38 @@ export const generateMarketAnalysis = async (
   }
 
   const prompt = `
-    Role: You are "Al-Mohalil Pro", the user's expert Trading Friend.
-    User Context: Beginner, Capital: ${currentCapital}, Asset: ${asset}, Timeframe: ${timeframe}.
+    Role: You are "Al-Mohalil Pro", a Senior Institutional Technical Analyst.
+    User Context: Capital: ${currentCapital}, Asset: ${asset}, Timeframe: ${timeframe}.
 
     YOUR MISSION:
-    1. Analyze Technicals (Trend, RSI, EMA) & Fundamentals.
-    2. Assess Market Condition (Stable, Volatile, or High Risk).
-    3. Calculate Risk (1-2% of capital max).
-    4. Decide: 
-       - If Probability < 65% OR High Risk News -> NEUTRE.
-       - Else -> ACHAT or VENTE.
+    Provide a HIGH-PRECISION Trading Signal. The user wants a DEEP explanation, not just a summary.
 
-    TONE:
-    - Act like a smart friend ("Sahbek l'expert").
-    - Use simple Arabic.
-    - Be protective. If risk is high, say "Let's stay out, brother."
+    1. **Detailed Technical Analysis**:
+       - Identify Key Liquidity Zones (Order Blocks).
+       - Analyze Market Structure (HH, HL, Break of Structure).
+       - Confirm with Indicators (RSI Divergence, EMA Crossover).
+    
+    2. **Trade Setup**:
+       - Entry: Precise level based on retest or breakout.
+       - Stop Loss: Place it logically below/above invalidation structure. **Explain WHY this SL level was chosen.**
+       - Take Profit: Target next liquidity pool.
+    
+    3. **Risk Calculation**:
+       - Calculate exact Risk Amount (1.5% of ${currentCapital}).
+       - Ensure Risk:Reward is at least 1:2.
 
-    OUTPUT:
+    4. **The "Why" (FundamentalSummary)**:
+       - Write a detailed paragraph in Arabic.
+       - Start by explaining the general trend.
+       - Then explain the trigger (e.g., "Price rejected 1.0850 support with a Pinbar").
+       - Explicitly state: "Entering here is safe because..."
+       - Explicitly state: "If price breaks [SL Level], the setup is invalid."
+
+    OUTPUT REQUIREMENTS:
     - Strictly JSON matching the schema.
     - NO Crypto.
+    - Language: Professional Arabic (Trading Terminology in English/French allowed).
+    - If Probability < 60%, force action: "NEUTRE" and explain why we are waiting.
   `;
 
   try {
@@ -186,7 +199,7 @@ export const generateMarketAnalysis = async (
         ]
       },
       fundamentalAnalysis: {
-        summary: data.fundamentalSummary,
+        summary: data.fundamentalSummary, // This now contains the deep analysis
         sentiment: data.sentiment,
         keyEvents: data.keyEvents
       }

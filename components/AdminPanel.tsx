@@ -2,7 +2,7 @@
 import React, { useEffect, useState } from 'react';
 import { supabase } from '../lib/supabase';
 import { UserProfile } from '../types';
-import { Shield, LogOut, Search, MapPin, Smartphone, Clock, Database, EyeOff, AlertCircle } from 'lucide-react';
+import { Shield, LogOut, Search, MapPin, Smartphone, Clock, Database, EyeOff, AlertCircle, RefreshCw, Wifi } from 'lucide-react';
 
 interface Props {
   onLogout: () => void;
@@ -16,13 +16,28 @@ const AdminPanel: React.FC<Props> = ({ onLogout }) => {
 
   useEffect(() => {
     fetchUsers();
+
+    // Enable Realtime Subscription
+    // This listens for any INSERT or UPDATE on the profiles table
+    const subscription = supabase
+      .channel('public:profiles')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'profiles' }, (payload) => {
+         console.log('Realtime update:', payload);
+         // Refresh list on any change
+         fetchUsers(); 
+      })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(subscription);
+    };
   }, []);
 
   const fetchUsers = async () => {
     try {
       setLoading(true);
       setErrorMsg(null);
-      // Fetch data from 'profiles' table which contains the custom data we saved (IP, Username)
+      
       const { data, error } = await supabase
         .from('profiles')
         .select('*')
@@ -57,6 +72,9 @@ const AdminPanel: React.FC<Props> = ({ onLogout }) => {
                  <Shield className="w-5 h-5 text-white" />
               </div>
               <h1 className="text-lg font-bold text-white">لوحة التحكم (Admin Panel)</h1>
+              <span className="flex items-center gap-1 text-[10px] text-emerald-400 bg-emerald-900/20 px-2 py-0.5 rounded-full border border-emerald-500/20 animate-pulse">
+                <Wifi className="w-3 h-3" /> Live Sync
+              </span>
            </div>
            
            <button 
@@ -100,15 +118,25 @@ const AdminPanel: React.FC<Props> = ({ onLogout }) => {
                  <Database className="w-5 h-5 text-slate-400" />
                  قاعدة بيانات العملاء
               </h2>
-              <div className="relative w-full md:w-64">
-                 <Search className="absolute right-3 top-2.5 w-4 h-4 text-slate-500" />
-                 <input 
-                   type="text" 
-                   placeholder="بحث بالاسم أو IP..."
-                   value={searchTerm}
-                   onChange={(e) => setSearchTerm(e.target.value)}
-                   className="w-full bg-slate-900 border border-slate-600 rounded-lg py-2 pr-10 pl-4 text-sm text-white focus:border-rose-500 outline-none"
-                 />
+              <div className="flex items-center gap-3 w-full md:w-auto">
+                <button 
+                  onClick={fetchUsers}
+                  disabled={loading}
+                  className="bg-indigo-600 hover:bg-indigo-500 text-white p-2.5 rounded-lg transition-colors shadow disabled:opacity-50"
+                  title="تحديث البيانات"
+                >
+                  <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
+                </button>
+                <div className="relative w-full md:w-64">
+                   <Search className="absolute right-3 top-2.5 w-4 h-4 text-slate-500" />
+                   <input 
+                     type="text" 
+                     placeholder="بحث بالاسم أو IP..."
+                     value={searchTerm}
+                     onChange={(e) => setSearchTerm(e.target.value)}
+                     className="w-full bg-slate-900 border border-slate-600 rounded-lg py-2 pr-10 pl-4 text-sm text-white focus:border-rose-500 outline-none"
+                   />
+                </div>
               </div>
            </div>
 
