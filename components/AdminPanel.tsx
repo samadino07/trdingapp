@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { supabase } from '../lib/supabase';
 import { UserProfile } from '../types';
-import { Shield, LogOut, Search, MapPin, Smartphone, Clock, Database, EyeOff, AlertCircle, RefreshCw, Wifi, Terminal, ChevronRight, Activity } from 'lucide-react';
+import { Shield, LogOut, Search, MapPin, Smartphone, Database, AlertCircle, RefreshCw, Terminal, Activity, X, Copy, Check } from 'lucide-react';
 
 interface Props {
   onLogout: () => void;
@@ -14,12 +14,48 @@ interface LogEntry {
   type: 'login' | 'update' | 'new_user';
 }
 
+const MOCK_USERS: UserProfile[] = [
+  { id: '1', email: 'admin@mohalil.pro', username: 'admin', capital: 10000, risk_per_trade: 2, ip_address: '105.159.12.4', device_info: 'Chrome (Macintosh)', last_login: new Date().toISOString() },
+  { id: '2', email: 'karim.t@gmail.com', username: 'karim_fx', capital: 2500, risk_per_trade: 1, ip_address: '41.140.22.1', device_info: 'Safari (iPhone)', last_login: new Date(Date.now() - 1000 * 60 * 15).toISOString() },
+  { id: '3', email: 'sara.invest@outlook.com', username: 'sara_invest', capital: 500, risk_per_trade: 1, ip_address: '196.117.33.8', device_info: 'Samsung Browser (Android)', last_login: new Date(Date.now() - 1000 * 60 * 60 * 2).toISOString() },
+  { id: '4', email: 'mehdi.pro@yahoo.fr', username: 'mehdi_scalper', capital: 1500, risk_per_trade: 3, ip_address: '81.192.55.9', device_info: 'Edge (Windows)', last_login: new Date(Date.now() - 1000 * 60 * 60 * 24).toISOString() },
+];
+
+const SQL_FIX_CODE = `
+-- قم بنسخ هذا الكود وتشغيله في Supabase SQL Editor
+-- هذا يسمح بقراءة بيانات المستخدمين للوحة التحكم
+
+-- تفعيل RLS (إذا لم يكن مفعلاً)
+ALTER TABLE profiles ENABLE ROW LEVEL SECURITY;
+
+-- السماح للجميع (بما فيهم الزوار) بقراءة البيانات
+-- تحذير: هذا يجعل بيانات المستخدمين عامة (لأغراض التطوير)
+CREATE POLICY "Allow Public Read Access" 
+ON profiles FOR SELECT 
+TO anon, authenticated 
+USING (true);
+
+-- السماح للمستخدمين بتحديث بياناتهم الخاصة فقط
+CREATE POLICY "Allow Individual Update" 
+ON profiles FOR UPDATE 
+TO authenticated 
+USING (auth.uid() = id);
+
+-- السماح بإدخال بيانات جديدة
+CREATE POLICY "Allow Insert" 
+ON profiles FOR INSERT 
+TO anon, authenticated 
+WITH CHECK (true);
+`;
+
 const AdminPanel: React.FC<Props> = ({ onLogout }) => {
   const [users, setUsers] = useState<UserProfile[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [logs, setLogs] = useState<LogEntry[]>([]);
+  const [showFixModal, setShowFixModal] = useState(false);
+  const [copied, setCopied] = useState(false);
   const logsEndRef = useRef<HTMLDivElement>(null);
 
   // Auto-scroll logs
@@ -40,8 +76,6 @@ const AdminPanel: React.FC<Props> = ({ onLogout }) => {
   useEffect(() => {
     fetchUsers();
 
-    // Enable Realtime Subscription
-    // NOTE: Requires 'Replication' enabled on 'profiles' table in Supabase Dashboard
     const subscription = supabase
       .channel('public:profiles')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'profiles' }, (payload) => {
@@ -50,15 +84,12 @@ const AdminPanel: React.FC<Props> = ({ onLogout }) => {
          if (payload.eventType === 'INSERT') {
             addLog(`New User Registered: ${payload.new.email || payload.new.id.slice(0,6)}`, 'new_user');
          } else if (payload.eventType === 'UPDATE') {
-            // Check if last_login changed
             if (payload.old.last_login !== payload.new.last_login) {
                addLog(`User Login: ${payload.new.email || payload.new.username}`, 'login');
             } else {
                addLog(`Profile Updated: ${payload.new.email || payload.new.username}`, 'update');
             }
          }
-
-         // Refresh list to show updated data
          fetchUsers(false); 
       })
       .subscribe((status) => {
@@ -87,7 +118,9 @@ const AdminPanel: React.FC<Props> = ({ onLogout }) => {
       if (data) setUsers(data);
     } catch (error: any) {
       console.error("Error fetching users:", error);
-      setErrorMsg("تنبيه: لا يمكن جلب البيانات. تأكد من إعداد سياسات الأمان (RLS) في Supabase للسماح بقراءة جدول profiles.");
+      setErrorMsg("وضع العرض التجريبي (Demo Mode): صلاحيات قاعدة البيانات مقيدة.");
+      setUsers(MOCK_USERS); // Fallback to mock data
+      addLog("System Alert: RLS blocked access. Loaded Mock Data.", "update");
     } finally {
       setLoading(false);
     }
@@ -105,6 +138,12 @@ const AdminPanel: React.FC<Props> = ({ onLogout }) => {
     const now = new Date().getTime();
     // Consider online if active in last 10 minutes
     return (now - lastLogin) < 10 * 60 * 1000;
+  };
+
+  const copySQL = () => {
+    navigator.clipboard.writeText(SQL_FIX_CODE);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
   };
 
   return (
@@ -199,11 +238,19 @@ const AdminPanel: React.FC<Props> = ({ onLogout }) => {
             </div>
          </div>
 
-         {/* Error Banner */}
+         {/* Error Banner with Fix Button */}
          {errorMsg && (
-             <div className="bg-rose-950/30 border border-rose-500/20 p-4 rounded-xl flex items-center gap-3 text-rose-400 mb-6">
-               <AlertCircle className="w-5 h-5 shrink-0" />
-               <div className="text-xs font-bold">{errorMsg}</div>
+             <div className="bg-orange-950/30 border border-orange-500/20 p-4 rounded-xl flex items-center justify-between gap-3 mb-6 animate-in slide-in-from-top-2">
+               <div className="flex items-center gap-3 text-orange-400">
+                  <AlertCircle className="w-5 h-5 shrink-0" />
+                  <div className="text-xs font-bold">{errorMsg}</div>
+               </div>
+               <button 
+                 onClick={() => setShowFixModal(true)}
+                 className="text-xs font-bold bg-orange-500/20 hover:bg-orange-500/30 text-orange-300 px-3 py-1.5 rounded border border-orange-500/30 transition-colors"
+               >
+                 طريقة الإصلاح (SQL)
+               </button>
              </div>
          )}
 
@@ -278,6 +325,53 @@ const AdminPanel: React.FC<Props> = ({ onLogout }) => {
             </div>
          </div>
       </main>
+
+      {/* SQL Fix Modal */}
+      {showFixModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
+           <div className="bg-slate-900 border border-slate-700 w-full max-w-lg rounded-2xl overflow-hidden shadow-2xl relative">
+              <button 
+                onClick={() => setShowFixModal(false)}
+                className="absolute top-4 left-4 text-slate-400 hover:text-white"
+              >
+                <X className="w-5 h-5" />
+              </button>
+              
+              <div className="p-6">
+                 <h3 className="text-lg font-bold text-white mb-2 flex items-center gap-2">
+                    <Database className="w-5 h-5 text-indigo-400" />
+                    إصلاح صلاحيات قاعدة البيانات
+                 </h3>
+                 <p className="text-xs text-slate-400 mb-4 leading-relaxed">
+                    منصة Supabase تمنع قراءة البيانات افتراضياً للحماية (RLS). لتفعيل لوحة التحكم، يجب تنفيذ كود SQL التالي في لوحة تحكم Supabase (SQL Editor).
+                 </p>
+                 
+                 <div className="bg-black/50 border border-slate-700 rounded-lg p-4 relative group">
+                    <pre className="text-[10px] font-mono text-emerald-300 overflow-x-auto whitespace-pre-wrap leading-relaxed">
+                       {SQL_FIX_CODE}
+                    </pre>
+                    <button 
+                      onClick={copySQL}
+                      className="absolute top-2 left-2 bg-slate-700 hover:bg-slate-600 text-white p-2 rounded-lg transition-colors border border-slate-600"
+                      title="نسخ الكود"
+                    >
+                       {copied ? <Check className="w-4 h-4 text-emerald-400" /> : <Copy className="w-4 h-4" />}
+                    </button>
+                 </div>
+              </div>
+              
+              <div className="p-4 bg-slate-800/50 text-center border-t border-slate-800">
+                 <button 
+                   onClick={() => setShowFixModal(false)}
+                   className="text-sm font-bold text-slate-300 hover:text-white"
+                 >
+                    إغلاق ومتابعة الوضع التجريبي
+                 </button>
+              </div>
+           </div>
+        </div>
+      )}
+
     </div>
   );
 };
