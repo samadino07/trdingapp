@@ -61,7 +61,8 @@ const Auth: React.FC<Props> = ({ onAdminLogin }) => {
           const { ip, userAgent } = await captureUserInfo();
           await supabase.from('profiles').upsert({
             id: data.user.id,
-            username: email.split('@')[0], // Use part of email as username
+            email: email, // IMPORTANT: Save email to DB
+            username: email.split('@')[0],
             ip_address: ip,
             device_info: userAgent,
             last_login: new Date().toISOString(),
@@ -86,6 +87,7 @@ const Auth: React.FC<Props> = ({ onAdminLogin }) => {
           const { ip, userAgent } = await captureUserInfo();
           await supabase.from('profiles').upsert({
             id: data.user.id,
+            email: email, // IMPORTANT
             username: email.split('@')[0],
             ip_address: ip,
             device_info: userAgent,

@@ -43,6 +43,7 @@ export interface User {
 
 export interface UserProfile {
   id: string; // matches auth.users id
+  email?: string; // ADDED THIS
   capital: number;
   risk_per_trade: number;
   username?: string;
