@@ -310,7 +310,7 @@ const Dashboard: React.FC<Props> = ({ user, onLogout }) => {
               <div className="bg-slate-800 border border-slate-700 rounded-lg px-3 py-1.5 flex items-center gap-2 shadow-sm min-w-[90px] justify-center">
                  <Clock className="w-4 h-4 text-slate-400" />
                  <span className="text-xs font-mono font-bold text-white">
-                    {currentTime.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit', second:'2-digit'})}
+                    {currentTime.toLocaleTimeString('en-GB', {hour: '2-digit', minute:'2-digit', second:'2-digit', hour12: false})}
                  </span>
               </div>
            </div>

@@ -109,6 +109,21 @@ const newsAnalysisSchema: Schema = {
   required: ['summary', 'sentiment', 'focusAsset', 'tradingHint']
 }
 
+const newsListSchema: Schema = {
+  type: Type.ARRAY,
+  items: {
+    type: Type.OBJECT,
+    properties: {
+      id: { type: Type.STRING },
+      time: { type: Type.STRING, description: "Time of event e.g. 14:30" },
+      currency: { type: Type.STRING, description: "Currency code e.g. USD" },
+      event: { type: Type.STRING, description: "Name of the event" },
+      impact: { type: Type.STRING, enum: ['High', 'Medium', 'Low'] }
+    },
+    required: ['id', 'time', 'currency', 'event', 'impact']
+  }
+};
+
 export const generateMarketAnalysis = async (
   asset: string, 
   marketType: MarketType, 
@@ -325,6 +340,39 @@ export const generatePerformanceReview = async (
     throw new Error("فشل تحليل الأداء.");
   }
 };
+
+export const fetchLatestNews = async (): Promise<NewsItem[]> => {
+  if (!apiKey) throw new Error("API Key missing");
+
+  const today = new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+  
+  const prompt = `
+    Search for the key economic calendar events and market news for today, ${today}.
+    Focus on major currencies (USD, EUR, GBP, JPY) and commodities (Gold, Oil).
+    Select the top 5 most impactful events/news.
+    Return a JSON array of these events.
+    For 'time', use the time in GMT or local market time (approximate is fine).
+    For 'impact', estimate High/Medium/Low based on the event type.
+  `;
+
+  try {
+    const response = await ai.models.generateContent({
+      model: 'gemini-3-pro-preview', // Required for googleSearch
+      contents: prompt,
+      config: {
+        tools: [{ googleSearch: {} }],
+        responseMimeType: "application/json",
+        responseSchema: newsListSchema,
+      }
+    });
+    
+    const news = JSON.parse(response.text || "[]");
+    return news as NewsItem[];
+  } catch (error) {
+    console.error("News fetch failed:", error);
+    return [];
+  }
+}
 
 export const analyzeNewsImpact = async (newsItems: NewsItem[]): Promise<NewsAnalysis> => {
   const newsContext = newsItems.map(n => `${n.time} - ${n.currency}: ${n.event} (Impact: ${n.impact})`).join('\n');

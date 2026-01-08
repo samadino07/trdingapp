@@ -29,7 +29,9 @@ const TradeHistoryTable: React.FC<Props> = ({ history }) => {
           <tbody className="divide-y divide-slate-700/50">
             {history.map((item) => (
               <tr key={item.id} className="hover:bg-slate-800/30 transition-colors">
-                <td className="px-6 py-4 font-mono text-xs">{new Date(item.date).toLocaleDateString()} {new Date(item.date).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</td>
+                <td className="px-6 py-4 font-mono text-xs">
+                  {new Date(item.date).toLocaleDateString('en-GB')} {new Date(item.date).toLocaleTimeString('en-GB', {hour: '2-digit', minute:'2-digit', hour12: false})}
+                </td>
                 <td className="px-6 py-4 font-bold text-white">{item.asset}</td>
                 <td className="px-6 py-4">
                   {item.action === TradeAction.BUY ? 
