@@ -2,7 +2,21 @@ import { GoogleGenAI, Type, Schema } from "@google/genai";
 import { TradeSignal, MarketType, TradeAction, AIModelId, Timeframe, MarketCondition, BacktestResult, BacktestDuration, PerformanceReview, NewsItem, NewsAnalysis } from "../types";
 
 // Initialize Gemini Client
-const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+const FALLBACK_API_KEY = 'AIzaSyBqUiOA5ZTY7PQORgQ22Vt3TPUPAfaXrDU';
+let apiKey = FALLBACK_API_KEY;
+
+try {
+  // Safely attempt to access Vite environment variables
+  // @ts-ignore
+  if (import.meta && import.meta.env && import.meta.env.VITE_API_KEY) {
+    // @ts-ignore
+    apiKey = import.meta.env.VITE_API_KEY;
+  }
+} catch (error) {
+  console.warn('Using fallback API key');
+}
+
+const ai = new GoogleGenAI({ apiKey: apiKey });
 
 const analysisSchema: Schema = {
   type: Type.OBJECT,
@@ -103,6 +117,10 @@ export const generateMarketAnalysis = async (
   currentCapital: number
 ): Promise<TradeSignal> => {
   
+  if (!apiKey) {
+    throw new Error("API Key غير موجود. تأكد من إعداد VITE_API_KEY في Vercel.");
+  }
+
   const prompt = `
     Role: You are "Al-Mohalil Pro", the user's expert Trading Friend.
     User Context: Beginner, Capital: ${currentCapital}, Asset: ${asset}, Timeframe: ${timeframe}.
@@ -189,6 +207,10 @@ export const runBacktestAnalysis = async (
   initialCapital: number
 ): Promise<BacktestResult> => {
   
+  if (!apiKey) {
+    throw new Error("API Key غير موجود.");
+  }
+
   const prompt = `
     أنت ذكاء اصطناعي متخصص في التداول وتحليل البيانات التاريخية.
     مهمتك هي تنفيذ Backtesting واقعي لنفس نظام التوصيات الذي تستخدمه (Trend Following + Price Action).
