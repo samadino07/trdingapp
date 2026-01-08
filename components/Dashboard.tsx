@@ -26,6 +26,7 @@ type ViewMode = 'dashboard' | 'reports' | 'history' | 'backtest' | 'education' |
 const Dashboard: React.FC<Props> = ({ user, onLogout }) => {
   const [currentView, setCurrentView] = useState<ViewMode>('dashboard');
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [currentTime, setCurrentTime] = useState(new Date());
 
   // --- State Management ---
   const [signals, setSignals] = useState<TradeSignal[]>([]);
@@ -41,6 +42,14 @@ const Dashboard: React.FC<Props> = ({ user, onLogout }) => {
 
   const [livePrices, setLivePrices] = useState<LivePrice[]>([]);
   const [activeAsset, setActiveAsset] = useState<string>('EUR/USD');
+
+  // --- Live Clock ---
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setCurrentTime(new Date());
+    }, 1000);
+    return () => clearInterval(timer);
+  }, []);
 
   // --- Fetch Data from Supabase ---
   useEffect(() => {
@@ -298,10 +307,10 @@ const Dashboard: React.FC<Props> = ({ user, onLogout }) => {
                     <MapPin className="w-3 h-3" /> {session.name}
                  </div>
               </div>
-              <div className="bg-slate-800 border border-slate-700 rounded-lg px-3 py-1.5 flex items-center gap-2 shadow-sm">
+              <div className="bg-slate-800 border border-slate-700 rounded-lg px-3 py-1.5 flex items-center gap-2 shadow-sm min-w-[90px] justify-center">
                  <Clock className="w-4 h-4 text-slate-400" />
                  <span className="text-xs font-mono font-bold text-white">
-                    {new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
+                    {currentTime.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit', second:'2-digit'})}
                  </span>
               </div>
            </div>

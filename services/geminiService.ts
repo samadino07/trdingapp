@@ -270,35 +270,42 @@ export const runBacktestAnalysis = async (
 };
 
 export const generatePerformanceReview = async (
-  backtestResult: BacktestResult,
+  backtestResult: BacktestResult | null,
   liveStats: { winRate: number; tradeCount: number; totalProfit: number }
 ): Promise<PerformanceReview> => {
 
+  // Handle case where no backtest data exists - use Market Standards
+  const backtestContext = backtestResult 
+    ? `- Backtest Win Rate: ${backtestResult.winRate}%\n- Backtest Strategy Quality: ${backtestResult.strategyQuality}`
+    : `- Backtest Data: NOT AVAILABLE. Use Market Standard Benchmark (60% Win Rate is Good).`;
+
   const prompt = `
     أنت ذكاء اصطناعي متخصص في التداول وتحليل الأداء.
-    دورك هو الربط بين نتائج Backtesting والنتائج الحقيقية (Live) بهدف تحسين جودة التوصيات وحماية رأس المال.
+    دورك هو تحليل الأداء الحقيقي (Live) للمتداول وتقديم نصائح لحماية رأس المال.
 
-    البيانات:
-    - Backtest Win Rate: ${backtestResult.winRate}%
-    - Backtest Strategy Quality: ${backtestResult.strategyQuality}
+    البيانات الحالية:
+    ${backtestContext}
     - Live Win Rate (Actual): ${liveStats.winRate}%
     - Live Trade Count: ${liveStats.tradeCount}
+    - Live Total Profit: ${liveStats.totalProfit}
 
     المهمة:
-    1. قارن الأداء المتوقع بالأداء الحقيقي.
+    1. قيم الأداء الحقيقي.
     2. قرر حالة الحساب (Safe, Caution, Stop).
     3. اقترح تعديل المخاطرة (Risk Adjustment).
 
     القواعد:
-    - إذا Live Win Rate < Backtest Win Rate بـ 10% أو أكثر -> حالة Caution + تقليل المخاطرة.
-    - إذا Live Win Rate < 40% -> حالة Stop + نصيحة بالتوقف والدراسة.
-    - إذا Live Win Rate قريب من Backtest -> حالة Safe + استمرار.
+    - إذا كان Backtest موجوداً: قارن الأداء به.
+    - إذا لم يكن موجوداً: قارن بمعيار 50-60% كنسبة نجاح مقبولة.
+    - إذا Live Win Rate < 40% -> حالة Stop + نصيحة بالتوقف.
+    - إذا Live Win Rate > 55% -> حالة Safe.
 
     المخرجات (JSON):
     - status: Safe / Caution / Stop
-    - riskAdjustment: نصيحة مباشرة (مثلاً: "خفّض المخاطرة إلى 1%")
-    - advice: شرح بسيط بالعربية للمبتدئ.
-    - reason: سبب القرار في جملة واحدة.
+    - riskAdjustment: نصيحة مباشرة (مثلاً: "خفّض المخاطرة إلى 1%" أو "أبق المخاطرة ثابتة")
+    - advice: شرح بسيط ومباشر بالعربية بناءً على الأرقام الحالية.
+    - reason: سبب القرار.
+    - backtestWinRate: If Backtest was null, return 60 (as benchmark).
   `;
 
   try {
